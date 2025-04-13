@@ -1,10 +1,11 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing_extensions import Union
 
 PROJECT_PATH = Path(__file__).parents[2]
 
@@ -17,9 +18,11 @@ class NavigatorMixin:
 
     def find_file(
         self,
-        fname: str,
+        fname: Union[str, Path],
         base: Optional[Path] = None,
     ) -> Optional[Path]:
+        if (fpath := Path(fname)).exists():
+            return fpath
         base = base or self.path_data
         files = list(base.rglob(f"*{fname}*", case_sensitive=False))
         if len(files) > 1:
