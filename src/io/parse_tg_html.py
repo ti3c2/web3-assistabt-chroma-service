@@ -1,11 +1,16 @@
 import datetime as dt
 import logging
 import re
-from typing import Optional
+from pathlib import Path
+from typing import List, Optional, Union
 from zoneinfo import ZoneInfo
 
+import markdownify as md
 from bs4 import BeautifulSoup
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, model_validator
+
+from ..config.settings import settings
+from .clean_text import cleanup_text
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +18,17 @@ logger = logging.getLogger(__name__)
 class TelegramMessage(BaseModel):
     message_id: str
     datetime: Optional[dt.datetime] = None
-    text: str
+    content: str
+    parsed_content: Optional[str] = None
 
-    class Config:
-        json_encoders = {dt.datetime: lambda v: v.isoformat() if v else None}
+    @model_validator(mode="after")
+    def parse_content(self):
+        self.parsed_content = cleanup_text(self.content)
+        return self
+
+    model_config = ConfigDict(
+        json_encoders={dt.datetime: lambda v: v.isoformat() if v else None}
+    )
 
 
 def parse_datetime(date_str: str) -> Optional[dt.datetime]:
@@ -52,7 +64,7 @@ def parse_datetime(date_str: str) -> Optional[dt.datetime]:
     return None
 
 
-def parse_telegram_messages(html_content: str) -> list[TelegramMessage]:
+def parse_tg_html(html_content: str) -> list[TelegramMessage]:
     soup = BeautifulSoup(html_content, "lxml")
     messages = []
 
@@ -78,10 +90,8 @@ def parse_telegram_messages(html_content: str) -> list[TelegramMessage]:
         logger.debug(f"Text content: {text_div}")
         if text_div:
             text_div_html = str(text_div)
-            text_div_html = re.sub(r"<br\s*/>", "\n", text_div_html)
-            text_content = BeautifulSoup(text_div_html, "lxml").text
-            # text_content = text_div_soup.(strip=False)
-            # text_content = str(text_div)
+            # text_content = md.markdownify(text_div_html)
+            text_content = str(text_div)
         else:
             # For service messages (dates)
             body_details = message.find("div", class_="body details")
@@ -92,20 +102,43 @@ def parse_telegram_messages(html_content: str) -> list[TelegramMessage]:
 
         # Create TelegramMessage instance
         telegram_message = TelegramMessage(
-            message_id=message_id, datetime=message_datetime, text=text_content
+            message_id=message_id, datetime=message_datetime, content=text_content
         )
         messages.append(telegram_message)
 
     return messages
 
 
+def parse_tg_files(file_paths: List[Union[Path, str]]):
+    messages = []
+    for file in file_paths:
+        file = settings.find_file(str(file))
+        if file:
+            content = file.read_text()
+            messages.extend(parse_tg_html(content))
+        else:
+            logger.warning(f"File not found: {file}")
+    return messages
+
+
+def test_tg_files():
+    files = list(settings.path_data_html.glob("*.html"))
+    parsed_messages = parse_tg_files(files)
+    for message in parsed_messages:
+        print("\nMessage ID:", message.message_id)
+        print("Datetime:", message.datetime)
+        print("Text:", message.parsed_content)
+        print("-" * 50)
+
+
 def main():
     import argparse
 
-    from ..config.settings import settings
+    # from ..config.settings import settings
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument("-d", "--debug", action="store_true")
+    argparser.add_argument("-p", "--print-content", action="store_true")
     args = argparser.parse_args()
 
     if args.debug:
@@ -117,7 +150,7 @@ def main():
         raise ValueError("Data file not found")
 
     content = data_file.read_text()
-    messages = parse_telegram_messages(content)
+    messages = parse_tg_html(content)
 
     for message in messages:
         if args.debug:
@@ -125,7 +158,9 @@ def main():
 
         print("\nMessage ID:", message.message_id)
         print("Datetime:", message.datetime)
-        print("Text:", message.text)
+        if args.print_content:
+            print("Text:", message.content)
+        print("Parsed content:", message.parsed_content)
         print("-" * 50)
 
 

@@ -2,6 +2,8 @@ import re
 from typing import Callable, List
 
 import emoji
+import markdownify as md
+from bs4 import BeautifulSoup
 
 
 def remove_emojis(text: str) -> str:
@@ -32,8 +34,19 @@ def remove_whitespace(text: str) -> str:
     # Remove leading/trailing whitespace
     text = "\n".join(line.strip() for line in text.splitlines())
     # Remove multiple spaces
-    text = re.sub(r"\s\s+", " ", text)
+    text = re.sub(r"\w\s\s+", " ", text)
     # Strip
+    text = text.strip()
+    return text
+
+
+def parse_html(text: str) -> str:
+    return md.markdownify(text)
+
+
+def parse_html_soup(text: str) -> str:  # NOTE: Probably not needed
+    text = re.sub(r"<br\s*/>", "\n", text)
+    text = BeautifulSoup(text, "lxml").text
     text = text.strip()
     return text
 
@@ -47,7 +60,19 @@ def get_cleanup_text(funcs: List[Callable[[str], str]]) -> Callable[[str], str]:
     return cleanup_text
 
 
-def main():
+cleanup_text: Callable[[str], str] = get_cleanup_text(
+    [
+        parse_html_soup,
+        remove_emojis,
+        remove_telegram_links,
+        remove_urls,
+        remove_hashtags,
+        remove_whitespace,
+    ]
+)
+
+
+def test_sample_text():
     # Example usage and testing
     sample_text = """
     ✨ Hello @username! Check out   https://example.com my website
@@ -57,9 +82,9 @@ def main():
     cleanup_text = get_cleanup_text(
         [
             remove_emojis,
-            remove_telegram_links,
-            remove_urls,
-            remove_hashtags,
+            # remove_telegram_links,
+            # remove_urls,
+            # remove_hashtags,
             remove_whitespace,
         ]
     )
@@ -71,4 +96,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    test_sample_text()
