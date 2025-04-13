@@ -8,12 +8,15 @@ dependencies = [
     "bs4>=0.0.2",
     "emoji>=2.14.1",
     "lxml>=5.3.2",
+    "markdownify>=1.1.0",
     "pydantic>=2.11.3",
     "pydantic-settings>=2.8.1",
 ]
 
 [dependency-groups]
 dev = [
+    "black>=25.1.0",
     "html5lib>=1.1",
     "ipykernel>=6.29.5",
+    "isort>=6.0.1",
 ]
