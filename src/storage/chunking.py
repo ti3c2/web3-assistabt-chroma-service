@@ -1,4 +1,5 @@
-from typing import Callable, List, Optional
+from dataclasses import dataclass
+from typing import Callable, List
 
 from langchain.docstore.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -6,18 +7,45 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from ..io.models import TelegramMessage
 
 
+def remove_short(chunks: List[str]) -> List[str]:
+    return [c for c in chunks if len(c) > 5]
+
+
+def remove_newlines(chunks: List[str]) -> List[str]:
+    return [c.replace("\n", " ") for c in chunks]
+
+
+def get_chunk_transforms(
+    funcs: List[Callable[[List[str]], List[str]]],
+) -> Callable[[List[str]], List[str]]:
+    def transform_chunks(chunks: List[str]) -> List[str]:
+        for func in funcs:
+            chunks = func(chunks)
+        return chunks
+
+    return transform_chunks
+
+
+transform_chunks = get_chunk_transforms([remove_short, remove_newlines])
+
+
+@dataclass
 class MessageChunker:
-    def __init__(
-        self,
-        chunk_size: int = 500,
-        chunk_overlap: int = 2,
-        length_function: Callable = len,
-    ):
-        self.splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            length_function=length_function,
-        )
+    chunk_size: int = 200
+    chunk_overlap: int = 2
+    length_function: Callable = len
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        length_function=length_function,
+    )
+    transform_chunks: Callable[[List[str]], List[str]] = transform_chunks
+
+    def split_text(self, text: str) -> List[str]:
+        chunks = self.splitter.split_text(text)
+        chunks = self.transform_chunks(chunks)
+        return chunks
 
     def split_message(self, message: TelegramMessage) -> List[Document]:
         chunks = self.splitter.split_text(message.parsed_content)
