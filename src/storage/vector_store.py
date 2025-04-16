@@ -100,17 +100,19 @@ class ChromaDbWrapper:
             "hnsw:search_ef": 100,
         }
     )
+    client: AsyncClientAPI = None
 
     chunker: MessageChunker = MessageChunker()
 
-    # @property
-    # def collection(self) -> AsyncCollection:
-    #     return self._collection or asyncio.get_event_loop().run_until_complete(
-    #         self.init_collection(self.collection_name)
-    #     )
+    async def init_client(self) -> None:
+        self.client = await chromadb.AsyncHttpClient(
+            host=self.host,
+            port=self.port,
+            settings=Settings(anonymized_telemetry=False),
+        )
 
     async def get_client(self) -> AsyncClientAPI:
-        return await chromadb.AsyncHttpClient(
+        return self.client or await chromadb.AsyncHttpClient(
             host=self.host,
             port=self.port,
             settings=Settings(anonymized_telemetry=False),
@@ -127,24 +129,45 @@ class ChromaDbWrapper:
         return collection
 
     async def add_messages(self, messages: List[TelegramMessage]) -> None:
-        documents = self.chunker.split_messages(messages)
+        collection = await self.get_collection(self.collection_name)
+        collection_entries = await collection.get(include=[])
+
+        # FIXME: think of how to skip chunking for messages that are already in the collection
+        all_documents = self.chunker.split_messages(messages)
+        documents = []
+        logger.info(
+            f"Adding {len(all_documents)} new documents out of {len(messages)} messages to vector store..."
+        )
+        for doc in self.chunker.split_messages(messages):
+            if doc.metadata["chunk_id"] in collection_entries["ids"]:
+                logger.warning(f"Skipping chunk {doc.metadata['chunk_id']}")
+                continue
+            documents.append(doc)
+        if not documents:
+            logger.warning("No new documents to add")
+            return
+
         ids = [doc.metadata["chunk_id"] for doc in documents]
         texts = [doc.page_content for doc in documents]
         metadatas = [doc.metadata for doc in documents]
         embeddings = await self.embedding_function.embed_documents(texts)
-        collection = await self.get_collection(self.collection_name)
         await collection.add(
             ids=ids, documents=texts, metadatas=metadatas, embeddings=embeddings
         )
+        logger.info(
+            f"Added {len(documents)} new documents out of required {len(all_documents)} to vector store"
+        )
+
 
     async def search(
         self,
         query: str,
-        n_results: int = 5,
+        n_results: Optional[int] = None,
         filter_dict: Optional[Dict[str, Any]] = None,
     ) -> SearchResults:
         query_embedding = await self.embedding_function.embed_query(query)
         collection = await self.get_collection(self.collection_name)
+        n_results = n_results or 10
         results = await collection.query(
             query_embeddings=query_embedding, n_results=n_results, where=filter_dict
         )
