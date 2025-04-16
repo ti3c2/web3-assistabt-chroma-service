@@ -23,12 +23,12 @@ class MessageChunker:
         chunks = self.splitter.split_text(message.parsed_content)
         documents = []
         for i, chunk in enumerate(chunks):
-            chunk_id = f"{message.channel}__{message.message_id}__chunk-{i}"
+            chunk_id = f"{message.username}__{message.message_id}__chunk-{i}"
             doc = Document(
                 page_content=chunk,
                 metadata=dict(
                     chunk_id=chunk_id,
-                    channel=message.channel,
+                    channel=message.username,
                     message_id=message.message_id,
                     datetime=message.datetime.isoformat() if message.datetime else "",
                     token_mentions=",".join(message.token_mentions),
@@ -51,7 +51,7 @@ def example_chunking() -> None:
 
     # Create a sample message with a long text
     message = TelegramMessage(
-        channel="crypto_news",
+        username="crypto_news",
         message_id="12345",
         datetime=dt.datetime(2023, 1, 1, 12, 0),
         content="""\

@@ -9,7 +9,7 @@ from .extract_data import extract_token_mentions
 
 
 class TelegramMessage(BaseModel):
-    channel: str
+    username: str
     message_id: str
     datetime: Optional[dt.datetime] = None
     content: str

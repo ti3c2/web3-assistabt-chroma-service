@@ -86,7 +86,7 @@ def parse_tg_html(html_content: str, channel: str) -> list[TelegramMessage]:
 
         # Create TelegramMessage instance
         telegram_message = TelegramMessage(
-            channel=channel,
+            username=channel,
             message_id=message_id,
             datetime=message_datetime,
             content=text_content,
@@ -131,7 +131,7 @@ def main():
         if args.debug:
             continue
 
-        print("\nChannel:", message.channel)
+        print("\nChannel:", message.username)
         print("Message ID:", message.message_id)
         print("Datetime:", message.datetime)
         if args.print_content:
