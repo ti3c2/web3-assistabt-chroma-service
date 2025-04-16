@@ -34,7 +34,7 @@ def remove_whitespace(text: str) -> str:
     # Remove leading/trailing whitespace
     text = "\n".join(line.strip() for line in text.splitlines())
     # Remove multiple spaces
-    text = re.sub(r"\w\s\s+", " ", text)
+    text = re.sub(r"(\w\s)\s+", r"\1", text)
     # Strip
     text = text.strip()
     return text
@@ -64,7 +64,7 @@ cleanup_text: Callable[[str], str] = get_cleanup_text(
     [
         parse_html_soup,
         remove_emojis,
-        remove_telegram_links,
+        # remove_telegram_links,
         remove_urls,
         remove_hashtags,
         remove_whitespace,
@@ -79,16 +79,6 @@ def test_sample_text():
     and t.me/channel $BTC 👋
     Привет мир! 123 #hashtag
     """
-    cleanup_text = get_cleanup_text(
-        [
-            remove_emojis,
-            # remove_telegram_links,
-            # remove_urls,
-            # remove_hashtags,
-            remove_whitespace,
-        ]
-    )
-
     print("Original text:")
     print(sample_text)
     print("\nCleaned text:")

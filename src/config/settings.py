@@ -9,6 +9,12 @@ from typing_extensions import Union
 
 PROJECT_PATH = Path(__file__).parents[2]
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+
 
 @dataclass
 class NavigatorMixin:
@@ -26,24 +32,28 @@ class NavigatorMixin:
         base = base or self.path_data
         files = list(base.rglob(f"*{fname}*", case_sensitive=False))
         if len(files) > 1:
-            logging.warning(f"Multiple files found for '{fname}': {files}")
+            logger.warning(f"Multiple files found for '{fname}': {files}")
         for path in files:
             if path.is_file():
-                logging.info(f"Found file for '{fname}': {path}")
+                logger.info(f"Found file for '{fname}': {path}")
                 return path
-        logging.error(f"No file found for '{fname}'")
+        logger.error(f"No file found for '{fname}'")
         return None
 
 
 class OpenAiConfigMixin:
     openai_api_key: Optional[str] = Field(None)
     openai_api_base: str = Field(default="https://api.openai.com/v1")
-    openai_custom_endpoint: str = Field(default="http://localhost:7113/v1")
     openai_model: str = Field(default="gpt-4o")
     openai_temperature: float = 0.3
 
 
-class Settings(BaseSettings, NavigatorMixin, OpenAiConfigMixin):
+class ChromaDbMixin:
+    chromadb_host: str = Field(default="localhost")
+    chromadb_port: int = Field(default=6300)
+
+
+class ProjectSettings(BaseSettings, NavigatorMixin, OpenAiConfigMixin, ChromaDbMixin):
     # Model configuration
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
@@ -54,10 +64,5 @@ class Settings(BaseSettings, NavigatorMixin, OpenAiConfigMixin):
 
 
 # Create global settings instance
-settings = Settings()  # pyright: ignore - using default arguments
-
-# Setup Logging
-logging.basicConfig(
-    level=settings.log_level,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
+settings = ProjectSettings()  # pyright: ignore - using default arguments
+logging.basicConfig(level=settings.log_level)

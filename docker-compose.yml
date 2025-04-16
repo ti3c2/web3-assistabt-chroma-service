@@ -1,0 +1,8 @@
+services:
+  chroma:
+    container_name: web3-assistant-chroma-db
+    image: chromadb/chroma
+    volumes:
+      - ./data/chroma-data:/data
+    ports:
+      - "6300:8000"

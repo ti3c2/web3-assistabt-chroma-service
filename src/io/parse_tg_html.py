@@ -1,30 +1,34 @@
 import datetime as dt
 import logging
 import re
+from functools import cached_property
 from pathlib import Path
 from typing import List, Optional, Union
 from zoneinfo import ZoneInfo
 
-import markdownify as md
 from bs4 import BeautifulSoup
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from ..config.settings import settings
 from .clean_text import cleanup_text
+from .extract_data import extract_token_mentions
 
 logger = logging.getLogger(__name__)
 
 
 class TelegramMessage(BaseModel):
+    channel: str
     message_id: str
     datetime: Optional[dt.datetime] = None
     content: str
-    parsed_content: Optional[str] = None
 
-    @model_validator(mode="after")
-    def parse_content(self):
-        self.parsed_content = cleanup_text(self.content)
-        return self
+    @cached_property
+    def parsed_content(self) -> str:
+        return cleanup_text(self.content)
+
+    @cached_property
+    def token_mentions(self) -> List[str]:
+        return extract_token_mentions(self.parsed_content)
 
     model_config = ConfigDict(
         json_encoders={dt.datetime: lambda v: v.isoformat() if v else None}
@@ -64,7 +68,7 @@ def parse_datetime(date_str: str) -> Optional[dt.datetime]:
     return None
 
 
-def parse_tg_html(html_content: str) -> list[TelegramMessage]:
+def parse_tg_html(html_content: str, channel: str) -> list[TelegramMessage]:
     soup = BeautifulSoup(html_content, "lxml")
     messages = []
 
@@ -102,65 +106,58 @@ def parse_tg_html(html_content: str) -> list[TelegramMessage]:
 
         # Create TelegramMessage instance
         telegram_message = TelegramMessage(
-            message_id=message_id, datetime=message_datetime, content=text_content
+            channel=channel,
+            message_id=message_id,
+            datetime=message_datetime,
+            content=text_content,
         )
         messages.append(telegram_message)
 
     return messages
 
 
-def parse_tg_files(file_paths: List[Union[Path, str]]):
+def parse_tg_files(file_paths: List[Union[Path, str]]) -> List[TelegramMessage]:
     messages = []
     for file in file_paths:
         file = settings.find_file(str(file))
         if file:
             content = file.read_text()
-            messages.extend(parse_tg_html(content))
+            channel_name = file.stem.split("__")[0]
+            messages.extend(parse_tg_html(content, channel_name))
         else:
             logger.warning(f"File not found: {file}")
     return messages
 
 
-def test_tg_files():
-    files = list(settings.path_data_html.glob("*.html"))
-    parsed_messages = parse_tg_files(files)
-    for message in parsed_messages:
-        print("\nMessage ID:", message.message_id)
-        print("Datetime:", message.datetime)
-        print("Text:", message.parsed_content)
-        print("-" * 50)
-
-
 def main():
     import argparse
 
-    # from ..config.settings import settings
+    import markdownify as md
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument("-d", "--debug", action="store_true")
     argparser.add_argument("-p", "--print-content", action="store_true")
+    argparser.add_argument("-f", "--files", nargs="+", type=str)
     args = argparser.parse_args()
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
 
-    data_file = settings.find_file("thedailyton")
-    if not data_file:
-        logger.error("Data file not found")
-        raise ValueError("Data file not found")
-
-    content = data_file.read_text()
-    messages = parse_tg_html(content)
+    files = args.files or list(settings.path_data_html.glob("*.html"))
+    print(files)
+    messages = parse_tg_files(files)
 
     for message in messages:
         if args.debug:
             continue
 
-        print("\nMessage ID:", message.message_id)
+        print("\nChannel:", message.channel)
+        print("Message ID:", message.message_id)
         print("Datetime:", message.datetime)
         if args.print_content:
-            print("Text:", message.content)
-        print("Parsed content:", message.parsed_content)
+            print("\nText:\n", md.markdownify(message.content))
+        print("Tokens:", message.token_mentions)
+        print("\nParsed content:\n", message.parsed_content)
         print("-" * 50)
 
 
