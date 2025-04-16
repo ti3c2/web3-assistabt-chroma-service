@@ -11,7 +11,7 @@ from chromadb.config import Settings
 from pydantic import BaseModel
 
 from ..config.settings import settings
-from ..io.parse_tg_html import TelegramMessage
+from ..io.models import TelegramMessage
 from .chunking import MessageChunker
 from .embeddings import BaseEmbeddings, OpenAIEmbeddings
 

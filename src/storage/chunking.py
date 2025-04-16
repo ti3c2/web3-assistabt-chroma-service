@@ -3,7 +3,7 @@ from typing import Callable, List, Optional
 from langchain.docstore.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-from ..io.parse_tg_html import TelegramMessage
+from ..io.models import TelegramMessage
 
 
 class MessageChunker:
