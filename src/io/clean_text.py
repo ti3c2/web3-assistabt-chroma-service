@@ -21,6 +21,34 @@ def remove_urls(text: str) -> str:
     return re.sub(url_pattern, "", text)
 
 
+def remove_md_emphasis(text: str) -> str:
+    emphasis_pattern = r"\*"
+    return re.sub(emphasis_pattern, r"", text)
+
+
+def remove_md_list_bullets(text: str) -> str:
+    list_pattern = r"^.\s"
+    return re.sub(list_pattern, r"", text, flags=re.MULTILINE)
+
+
+def replace_md_urls(text: str) -> str:
+    url_pattern = r"\[(.+?)\]\(.+?\)"
+    return re.sub(url_pattern, r"\1", text)
+
+
+def remove_urls_footnote(text: str) -> str:  # NOTE: not working
+    footnote_pattern = r"""
+    #^(?:.\s)?
+    (?P<url>
+        \[(.+?)\]
+        \(.+?\)
+        \s.\s
+    )+
+    (?P=url)
+    """
+    return re.sub(footnote_pattern, "", text, flags=re.MULTILINE | re.VERBOSE)
+
+
 def remove_hashtags(text: str) -> str:
     return re.sub(r"#[\S]+", "", text)
 
@@ -62,10 +90,14 @@ def get_cleanup_text(funcs: List[Callable[[str], str]]) -> Callable[[str], str]:
 
 cleanup_text: Callable[[str], str] = get_cleanup_text(
     [
-        parse_html_soup,
+        # parse_html_soup,
         remove_emojis,
+        # remove_urls_footnote,
+        replace_md_urls,
         # remove_telegram_links,
         remove_urls,
+        remove_md_emphasis,
+        remove_md_list_bullets,
         remove_hashtags,
         remove_whitespace,
     ]

@@ -3,7 +3,7 @@ from typing import List, Optional, Set
 
 from typing_extensions import Tuple
 
-TICKER_PATTERN = r"((?:st|w)?[A-Z]{2,6})"
+TICKER_PATTERN = r"(?:st|w)?[A-Z]{2,10}"
 
 
 def extract_token_single(text: str) -> List[str]:
@@ -29,8 +29,7 @@ def extract_token_mentions(text: str) -> List[str]:
     out = set()
     out.update(extract_token_single(text))
     for base, quote in extract_token_pairs(text):
-        out.add(base)
-        out.add(quote)
+        out.update([base, quote])
     return list(out)
 
 

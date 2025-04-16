@@ -1,13 +1,11 @@
 import datetime as dt
 import logging
 import re
-from functools import cached_property
 from pathlib import Path
 from typing import List, Optional, Union
 from zoneinfo import ZoneInfo
 
 from bs4 import BeautifulSoup
-from pydantic import BaseModel, ConfigDict, model_validator
 
 from ..config.settings import settings
 from .models import TelegramMessage
