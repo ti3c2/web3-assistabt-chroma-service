@@ -5,7 +5,6 @@ from typing import Optional, Union
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing_extensions import Union
 
 PROJECT_PATH = Path(__file__).parents[2]
 
@@ -51,16 +50,25 @@ class OpenAiConfigMixin:
 class ChromaDbMixin:
     chromadb_host: str = Field(default="localhost")
     chromadb_port: int = Field(default=6300)
+    chromadb_api_port: int = Field(default=6400)
 
 
-class ProjectSettings(BaseSettings, NavigatorMixin, OpenAiConfigMixin, ChromaDbMixin):
+class TgParserMixin:
+    path_session: Path = PROJECT_PATH / "session"
+    tg_parser_host: str = Field(default="http://tg-parser-api")
+    tg_parser_port: int = Field(default=8778)
+
+
+class ProjectSettings(
+    BaseSettings, NavigatorMixin, OpenAiConfigMixin, ChromaDbMixin, TgParserMixin
+):
     # Model configuration
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
     # Logging level
-    log_level: int = logging.INFO
+    log_level: int = logging.DEBUG
 
 
 # Create global settings instance

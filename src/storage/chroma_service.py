@@ -3,9 +3,11 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Dict, List, Optional
 
+import aiohttp
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from ..config.settings import settings
 from ..io.models import TelegramMessage
 from .vector_store import ChromaDbWrapper, SearchResults
 
@@ -78,8 +80,40 @@ async def delete_messages(message_ids: List[str]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.post("/chroma/fetch")
+async def fetch_messages(usernames: List[str], limit: int = 50, offset: int = 0):
+    try:
+        url = settings.tg_parser_host
+        port = settings.tg_parser_port
+        endpoint = f"{url}:{port}/posts?usernames={','.join(usernames)}&limit={limit}&offset={offset}"
+        logger.info(f"Fetching messages from {endpoint}")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(endpoint) as response:
+                if response.status == 200:
+                    messages = await response.json()
+                    messages = [Message(**m) for m in messages]
+                    # logger.info(messages)
+                    await add_messages(messages)
+                    return {
+                        "status": "success",
+                        "message": f"Added {len(messages)} messages",
+                    }
+                else:
+                    raise HTTPException(
+                        status_code=response.status, detail="Failed to fetch messages"
+                    )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
 
     # uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-    uvicorn.run("src.storage.chroma_service:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "src.storage.chroma_service:app",
+        host="0.0.0.0",
+        port=settings.chromadb_api_port,
+        reload=True,
+    )
