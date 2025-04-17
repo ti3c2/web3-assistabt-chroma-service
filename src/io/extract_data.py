@@ -8,7 +8,7 @@ TICKER_PATTERN = r"(?:st|w)?[A-Z]{2,10}"
 
 def extract_token_single(text: str) -> List[str]:
     out = set()
-    cashtag_pattern = r"\$" + TICKER_PATTERN
+    cashtag_pattern = rf"\$({TICKER_PATTERN})"
     for match in re.finditer(cashtag_pattern, text):
         symbol = match.group(1)
         out.add(symbol)
