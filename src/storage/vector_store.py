@@ -102,7 +102,7 @@ class ChromaDbWrapper:
     )
     client: AsyncClientAPI = None
 
-    chunker: MessageChunker = MessageChunker()
+    chunker: MessageChunker = field(default_factory=MessageChunker)
 
     async def init_client(self) -> None:
         self.client = await chromadb.AsyncHttpClient(
@@ -157,7 +157,6 @@ class ChromaDbWrapper:
         logger.info(
             f"Added {len(documents)} new documents out of required {len(all_documents)} to vector store"
         )
-
 
     async def search(
         self,

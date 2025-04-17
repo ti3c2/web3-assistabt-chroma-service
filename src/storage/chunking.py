@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, List
 
 from langchain.docstore.document import Document
@@ -8,7 +8,7 @@ from ..io.models import TelegramMessage
 
 
 def remove_short(chunks: List[str]) -> List[str]:
-    return [c for c in chunks if len(c) > 5]
+    return [c for c in chunks if len(c.split()) > 5]
 
 
 def remove_newlines(chunks: List[str]) -> List[str]:
@@ -35,12 +35,13 @@ class MessageChunker:
     chunk_overlap: int = 2
     length_function: Callable = len
 
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
-        length_function=length_function,
-    )
-    transform_chunks: Callable[[List[str]], List[str]] = transform_chunks
+    def __post_init__(self):
+        self.splitter = RecursiveCharacterTextSplitter(
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
+            length_function=self.length_function,
+        )
+        self.transform_chunks: Callable[[List[str]], List[str]] = transform_chunks
 
     def split_text(self, text: str) -> List[str]:
         chunks = self.splitter.split_text(text)
@@ -60,6 +61,7 @@ class MessageChunker:
                     message_id=message.message_id,
                     datetime=message.datetime.isoformat() if message.datetime else "",
                     token_mentions=",".join(message.token_mentions),
+                    content=message.content,
                 ),
             )
             documents.append(doc)
