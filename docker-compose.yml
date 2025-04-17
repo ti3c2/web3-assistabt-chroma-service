@@ -1,0 +1,31 @@
+services:
+  chroma:
+    container_name: web3-assistant-chroma-db
+    image: chromadb/chroma
+    volumes:
+      - ./data/chroma-data:/data
+    ports:
+      - "6300:8000"
+    networks:
+      - vector-network
+
+  api:
+    container_name: web3-assistant-vector-api
+    build: .
+    environment:
+      - CHROMADB_HOST=chroma
+      - CHROMADB_PORT=8000
+      - PORT=8000
+      - OPENAI_API_KEY=$OPENAI_API_KEY
+    ports:
+      - "8000:8000"
+    depends_on:
+      - chroma
+    networks:
+      - vector-network
+    volumes:
+      - ./src:/app/src
+
+networks:
+  vector-network:
+    driver: bridge
