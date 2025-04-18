@@ -23,11 +23,17 @@ class SearchQuery(BaseModel):
     query: str
     n_results: Optional[int] = 15
 
-class SearchResults:
-    documents: List[str]
-    metadatas: List[Dict]
-    distances: List[float]
-    ids: List[str]
+class SearchResult(BaseModel):
+    document: str
+    distance: float
+    datetime: datetime
+    token_mentions: str
+    channel: str
+    message_id: str
+    chunk_id: str
+
+class SearchResults(BaseModel):
+    results: List[SearchResult]
 ```
 
 ### Endpoints
@@ -47,15 +53,19 @@ Semantic search across messages.
 - **Input**: `SearchQuery`
 - **Returns**: `SearchResults`
 - **Example Response**:
-```python
+```json
 {
-    "documents": ["message text 1", "message text 2"],
-    "metadatas": [
-        {"username": "user1", "datetime": "2023-01-01T00:00:00"},
-        {"username": "user2", "datetime": "2023-01-02T00:00:00"}
-    ],
-    "distances": [0.123, 0.456],
-    "ids": ["msg_id_1", "msg_id_2"]
+  "results": [
+    {
+      "document": "Test message\nThis is test message to add to database",
+      "distance": 0.19344091,
+      "datetime": "2025-04-15T10:57:15+00:00",
+      "token_mentions": "",
+      "channel": "test",
+      "message_id": "0",
+      "chunk_id": "test__0__chunk-0"
+    }
+  ]
 }
 ```
 
