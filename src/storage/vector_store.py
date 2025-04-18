@@ -113,11 +113,9 @@ class ChromaDbWrapper:
         )
 
     async def get_client(self) -> AsyncClientAPI:
-        return self.client or await chromadb.AsyncHttpClient(
-            host=self.host,
-            port=self.port,
-            settings=Settings(anonymized_telemetry=False),
-        )
+        if self.client is None:
+            await self.init_client()
+        return self.client
 
     async def get_collection(self, collection_name: Optional[str]) -> AsyncCollection:
         collection_name = collection_name or self.collection_name
