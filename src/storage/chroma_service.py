@@ -31,7 +31,7 @@ class Message(BaseModel):
 
 class SearchQuery(BaseModel):
     query: str
-    n_results: Optional[int] = 5
+    n_results: Optional[int] = 15
 
 
 @app.on_event("startup")
@@ -48,6 +48,7 @@ async def on_startup():
 
 @app.post("/chroma/messages")
 async def add_messages(messages: List[Message]) -> Dict[str, str]:
+    """Add messages to the vector store."""
     try:
         telegram_messages = [
             TelegramMessage(
@@ -66,6 +67,7 @@ async def add_messages(messages: List[Message]) -> Dict[str, str]:
 
 @app.post("/chroma/search")
 async def search_messages(query: SearchQuery) -> SearchResults:
+    """Search messages in the vector store."""
     try:
         return await vector_store.search(query.query, query.n_results)
     except Exception as e:
@@ -74,6 +76,7 @@ async def search_messages(query: SearchQuery) -> SearchResults:
 
 @app.delete("/chroma/messages")
 async def delete_messages(message_ids: List[str]):
+    """Delete messages from the vector store by ids"""
     try:
         await vector_store.delete_messages(message_ids)
         return {"status": "success", "message": f"Deleted {len(message_ids)} messages"}
