@@ -48,7 +48,7 @@ class MessageChunker:
         chunks = self.transform_chunks(chunks)
         return chunks
 
-    def split_message(self, message: TelegramMessage) -> List[Document]:
+    def split_message(self, message: TelegramMessage) -> List[Document]: # NOTE: Tightly bound with search results in vector_store.py
         chunks = self.splitter.split_text(message.parsed_content)
         documents = []
         for i, chunk in enumerate(chunks):
@@ -57,7 +57,7 @@ class MessageChunker:
                 page_content=chunk,
                 metadata=dict(
                     chunk_id=chunk_id,
-                    channel=message.username,
+                    username=message.username,
                     message_id=message.message_id,
                     datetime=message.datetime.isoformat() if message.datetime else "",
                     token_mentions=",".join(message.token_mentions),

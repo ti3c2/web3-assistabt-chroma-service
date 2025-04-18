@@ -18,16 +18,17 @@ from .embeddings import BaseEmbeddings, OpenAIEmbeddings
 logger = logging.getLogger(__name__)
 
 
-class SearchResult(BaseModel):
+class SearchResult(BaseModel): # NOTE: Tightly bound with document from chunking.py
     """Wrapper for a single search result from ChromaDB."""
 
     document: str
     distance: float
     datetime: str
     token_mentions: str
-    channel: str
+    username: str
     message_id: str
     chunk_id: str
+    content: str
 
     @classmethod
     def from_chromadb(cls, doc: str, dist: float, meta: Dict) -> "SearchResult":
