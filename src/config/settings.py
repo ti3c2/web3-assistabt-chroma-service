@@ -58,19 +58,23 @@ class TgParserMixin:
     tg_parser_host: str = Field(default="http://tg-parser-api")
     tg_parser_port: int = Field(default=8778)
 
+    @property
+    def tg_parser_base_url(self, endpoint: Optional[str] = None) -> str:
+        url = f"{self.tg_parser_host}:{self.tg_parser_port}"
+        if endpoint:
+            url += f"/{endpoint}"
+        return url
+
 
 class ProjectSettings(
     BaseSettings, NavigatorMixin, OpenAiConfigMixin, ChromaDbMixin, TgParserMixin
 ):
-    # Model configuration
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    # Logging level
     log_level: int = logging.DEBUG
 
 
-# Create global settings instance
-settings = ProjectSettings()  # pyright: ignore - using default arguments
+settings = ProjectSettings()
 logging.basicConfig(level=settings.log_level)

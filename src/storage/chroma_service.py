@@ -30,8 +30,9 @@ class Message(BaseModel):
 
 
 class SearchQuery(BaseModel):
-    query: str
-    n_results: Optional[int] = 5
+    query: Optional[str] = None
+    n_results: Optional[int] = 15
+    tokens: Optional[List[str]] = None
 
 
 @app.on_event("startup")
@@ -48,6 +49,7 @@ async def on_startup():
 
 @app.post("/chroma/messages")
 async def add_messages(messages: List[Message]) -> Dict[str, str]:
+    """Add messages to the vector store."""
     try:
         telegram_messages = [
             TelegramMessage(
@@ -66,14 +68,27 @@ async def add_messages(messages: List[Message]) -> Dict[str, str]:
 
 @app.post("/chroma/search")
 async def search_messages(query: SearchQuery) -> SearchResults:
+    """Search messages in the vector store."""
     try:
-        return await vector_store.search(query.query, query.n_results)
+        if query.query:
+            return await vector_store.search(
+                query.query, query.n_results, tokens=query.tokens
+            )
+        if query.tokens:
+            query_mock: str = "Earn"  # FIXME: Remove vector store for this logic
+            return await vector_store.search(
+                query_mock, query.n_results, tokens=query.tokens
+            )
+        raise HTTPException(
+            status_code=400, detail="At least on of query or tokens should be provided"
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error on /chroma/search: {}".format(e))
 
 
 @app.delete("/chroma/messages")
 async def delete_messages(message_ids: List[str]):
+    """Delete messages from the vector store by ids"""
     try:
         await vector_store.delete_messages(message_ids)
         return {"status": "success", "message": f"Deleted {len(message_ids)} messages"}
