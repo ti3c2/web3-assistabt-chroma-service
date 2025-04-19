@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from ..config.settings import settings
 from ..io.models import TelegramMessage
-from .vector_store import ChromaDbWrapper, SearchResults
+from .vector_storage import ChromaDbWrapper, SearchResults
 
 logger = logging.getLogger(__name__)
 
