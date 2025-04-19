@@ -31,7 +31,7 @@ class Message(BaseModel):
 
 class SearchQuery(BaseModel):
     query: Optional[str] = None
-    n_results: Optional[int] = 15
+    n_results: int = 15
     tokens: Optional[List[str]] = None
 
 
@@ -68,22 +68,21 @@ async def add_messages(messages: List[Message]) -> Dict[str, str]:
 
 @app.post("/chroma/search")
 async def search_messages(query: SearchQuery) -> SearchResults:
-    """Search messages in the vector store."""
+    """
+    Search messages in the vector store.
+    - If query is specified, do semantic search. Otherwise, search for all messages using filters.
+    - If tokens are specified, include them in full-text search.
+    - If only tokens are specified, do full-text search for them.
+    - If neither query nor tokens are specified, return all messages.
+    """
     try:
-        if query.query:
-            return await vector_store.search(
-                query.query, query.n_results, tokens=query.tokens
-            )
-        if query.tokens:
-            query_mock: str = "Earn"  # FIXME: Remove vector store for this logic
-            return await vector_store.search(
-                query_mock, query.n_results, tokens=query.tokens
-            )
-        raise HTTPException(
-            status_code=400, detail="At least on of query or tokens should be provided"
+        return await vector_store.search(
+            query.query, query.n_results, full_text_items=query.tokens
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Error on /chroma/search: {}".format(e))
+        raise HTTPException(
+            status_code=500, detail="Error on /chroma/search: {}".format(e)
+        )
 
 
 @app.delete("/chroma/messages")
@@ -98,7 +97,7 @@ async def delete_messages(message_ids: List[str]):
 
 @app.post("/chroma/fetch")
 async def fetch_messages(
-    usernames: Optional[List[str]] = None, limit: int = 50, offset: int = 0
+    usernames: Optional[List[str]] = None, limit: int = 500, offset: int = 0
 ):
     """Fetch messages from the tg parser and add them to the vector store"""
     try:
