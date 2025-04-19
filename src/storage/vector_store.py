@@ -18,7 +18,7 @@ from .embeddings import BaseEmbeddings, OpenAIEmbeddings
 logger = logging.getLogger(__name__)
 
 
-class SearchResult(BaseModel): # NOTE: Tightly bound with document from chunking.py
+class SearchResult(BaseModel):  # NOTE: Tightly bound with document from chunking.py
     """Wrapper for a single search result from ChromaDB."""
 
     document: str
@@ -162,14 +162,26 @@ class ChromaDbWrapper:
         query: str,
         n_results: Optional[int] = None,
         filter_dict: Optional[Dict[str, Any]] = None,
+        tokens: Optional[List[str]] = None,
     ) -> SearchResults:
         query_embedding = await self.embedding_function.embed_query(query)
         collection = await self.get_collection(self.collection_name)
         n_results = n_results or 10
+
         results = await collection.query(
             query_embeddings=query_embedding, n_results=n_results, where=filter_dict
         )
         search_results = SearchResults.from_chromadb(results, query=query)
+
+        # FIXME: Very much crunch
+        if tokens:
+            search_results_items = [
+                sr
+                for sr in search_results
+                if any(t in sr.token_mentions for t in tokens)
+            ]
+            search_results.results = search_results_items
+
         return search_results
 
     async def delete_messages(self, message_ids: List[str]) -> None:

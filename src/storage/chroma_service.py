@@ -30,8 +30,9 @@ class Message(BaseModel):
 
 
 class SearchQuery(BaseModel):
-    query: str
+    query: Optional[str] = None
     n_results: Optional[int] = 15
+    tokens: Optional[List[str]] = None
 
 
 @app.on_event("startup")
@@ -69,9 +70,20 @@ async def add_messages(messages: List[Message]) -> Dict[str, str]:
 async def search_messages(query: SearchQuery) -> SearchResults:
     """Search messages in the vector store."""
     try:
-        return await vector_store.search(query.query, query.n_results)
+        if query.query:
+            return await vector_store.search(
+                query.query, query.n_results, tokens=query.tokens
+            )
+        if query.tokens:
+            query_mock: str = "Earn"  # FIXME: Remove vector store for this logic
+            return await vector_store.search(
+                query_mock, query.n_results, tokens=query.tokens
+            )
+        raise HTTPException(
+            status_code=400, detail="At least on of query or tokens should be provided"
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error on /chroma/search: {}".format(e))
 
 
 @app.delete("/chroma/messages")
