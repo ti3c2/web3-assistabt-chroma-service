@@ -97,18 +97,19 @@ async def delete_messages(message_ids: List[str]):
 
 
 @app.post("/chroma/fetch")
-async def fetch_messages(usernames: List[str], limit: int = 50, offset: int = 0):
+async def fetch_messages(
+    usernames: Optional[List[str]] = None, limit: int = 50, offset: int = 0
+):
+    """Fetch messages from the tg parser and add them to the vector store"""
     try:
-        url = settings.tg_parser_host
-        port = settings.tg_parser_port
-        endpoint = f"{url}:{port}/posts?usernames={','.join(usernames)}&limit={limit}&offset={offset}"
+        endpoint = settings.tg_parser_posts_endpoint
+        params = {"usernames": usernames, "limit": limit, "offset": offset}
         logger.info(f"Fetching messages from {endpoint}")
         async with aiohttp.ClientSession() as session:
-            async with session.get(endpoint) as response:
+            async with session.get(endpoint, params=params) as response:
                 if response.status == 200:
                     messages = await response.json()
                     messages = [Message(**m) for m in messages]
-                    # logger.info(messages)
                     await add_messages(messages)
                     return {
                         "status": "success",
