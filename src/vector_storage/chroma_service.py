@@ -86,11 +86,20 @@ async def search_messages(query: SearchQuery) -> SearchResults:
 
 
 @app.delete("/chroma/messages")
-async def delete_messages(message_ids: List[str]):
-    """Delete messages from the vector store by ids"""
+async def delete_messages(
+    message_ids: Optional[List[str]] = None, usernames: Optional[List[str]] = None
+):
+    """
+    Delete messages from the vector store by ids.
+    - If message_ids are specified, delete messages with those ids.
+    - If usernames are specified, delete ALL messages from those users.
+    """
     try:
-        await vector_store.delete_messages(message_ids)
-        return {"status": "success", "message": f"Deleted {len(message_ids)} messages"}
+        await vector_store.delete_messages(message_ids, usernames)
+        return {
+            "status": "success",
+            "message": f"Deleted messages for ids {message_ids} and usernames {usernames}",
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

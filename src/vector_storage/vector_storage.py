@@ -260,9 +260,20 @@ class ChromaDbWrapper:
         out_filter = {"$or": [where_document_filter] + contains_items}
         return out_filter
 
-    async def delete_messages(self, message_ids: List[str]) -> None:
+    async def delete_messages(
+        self,
+        message_ids: Optional[List[str]] = None,
+        usernames: Optional[List[str]] = None,
+    ) -> None:
         collection = await self.get_collection(self.collection_name)
-        await collection.delete(ids=message_ids)
+        if message_ids:
+            logger.info(f"Deleting messages with IDs: {message_ids}")
+            return await collection.delete(ids=message_ids)
+        if usernames:
+            where = {"username": {"$in": usernames}}
+            logger.info(f"Deleting messages from usernames: {usernames}")
+            return await collection.delete(where=where)
+        logger.warning("No message IDs or usernames provided for deletion")
 
 
 async def main():
