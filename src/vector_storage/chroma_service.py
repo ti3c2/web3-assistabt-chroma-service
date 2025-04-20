@@ -5,11 +5,11 @@ from typing import Dict, List, Optional
 
 import aiohttp
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..config.settings import settings
 from ..io.models import TelegramMessage
-from .vector_store import ChromaDbWrapper, SearchResults
+from .vector_storage import ChromaDbWrapper, SearchResults
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +31,12 @@ class Message(BaseModel):
 
 class SearchQuery(BaseModel):
     query: Optional[str] = None
-    n_results: Optional[int] = 15
+    n_results: int = 15
     tokens: Optional[List[str]] = None
+    return_unique: bool = Field(
+        default=True,
+        description="Return unique messages. Do not change this if you are unsure.",
+    )
 
 
 @app.on_event("startup")
@@ -67,48 +71,59 @@ async def add_messages(messages: List[Message]) -> Dict[str, str]:
 
 
 @app.post("/chroma/search")
-async def search_messages(query: SearchQuery) -> SearchResults:
-    """Search messages in the vector store."""
+async def search_messages(
+    query: SearchQuery,
+) -> SearchResults:
+    """
+    Search messages in the vector store.
+    - If query is specified, do semantic search. Otherwise, search for all messages using filters.
+    - If tokens are specified, include them in full-text search.
+    - If only tokens are specified, do full-text search for them.
+    - If neither query nor tokens are specified, return all messages.
+    """
     try:
-        if query.query:
-            return await vector_store.search(
-                query.query, query.n_results, tokens=query.tokens
-            )
-        if query.tokens:
-            query_mock: str = "Earn"  # FIXME: Remove vector store for this logic
-            return await vector_store.search(
-                query_mock, query.n_results, tokens=query.tokens
-            )
-        raise HTTPException(
-            status_code=400, detail="At least on of query or tokens should be provided"
+        return await vector_store.search(
+            query.query, query.n_results, full_text_items=query.tokens
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Error on /chroma/search: {}".format(e))
+        raise HTTPException(
+            status_code=500, detail="Error on /chroma/search: {}".format(e)
+        )
 
 
 @app.delete("/chroma/messages")
-async def delete_messages(message_ids: List[str]):
-    """Delete messages from the vector store by ids"""
+async def delete_messages(
+    message_ids: Optional[List[str]] = None, usernames: Optional[List[str]] = None
+):
+    """
+    Delete messages from the vector store by ids.
+    - If message_ids are specified, delete messages with those ids.
+    - If usernames are specified, delete ALL messages from those users.
+    """
     try:
-        await vector_store.delete_messages(message_ids)
-        return {"status": "success", "message": f"Deleted {len(message_ids)} messages"}
+        await vector_store.delete_messages(message_ids, usernames)
+        return {
+            "status": "success",
+            "message": f"Deleted messages for ids {message_ids} and usernames {usernames}",
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/chroma/fetch")
-async def fetch_messages(usernames: List[str], limit: int = 50, offset: int = 0):
+async def fetch_messages(
+    usernames: Optional[List[str]] = None, limit: int = 500, offset: int = 0
+):
+    """Fetch messages from the tg parser and add them to the vector store"""
     try:
-        url = settings.tg_parser_host
-        port = settings.tg_parser_port
-        endpoint = f"{url}:{port}/posts?usernames={','.join(usernames)}&limit={limit}&offset={offset}"
+        endpoint = settings.tg_parser_posts_endpoint
+        params = {"usernames": usernames, "limit": limit, "offset": offset}
         logger.info(f"Fetching messages from {endpoint}")
         async with aiohttp.ClientSession() as session:
-            async with session.get(endpoint) as response:
+            async with session.get(endpoint, params=params) as response:
                 if response.status == 200:
                     messages = await response.json()
                     messages = [Message(**m) for m in messages]
-                    # logger.info(messages)
                     await add_messages(messages)
                     return {
                         "status": "success",

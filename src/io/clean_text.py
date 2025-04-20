@@ -17,7 +17,7 @@ def remove_telegram_links(text: str) -> str:
 
 
 def remove_urls(text: str) -> str:
-    url_pattern = r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+    url_pattern = r"\(?http[s]?://\S+"
     return re.sub(url_pattern, "", text)
 
 
@@ -27,7 +27,7 @@ def remove_md_emphasis(text: str) -> str:
 
 
 def remove_md_list_bullets(text: str) -> str:
-    list_pattern = r"^.\s"
+    list_pattern = r"^[\*\-]\s"
     return re.sub(list_pattern, r"", text, flags=re.MULTILINE)
 
 
@@ -59,10 +59,10 @@ def remove_cashtags(text: str) -> str:
 
 
 def remove_whitespace(text: str) -> str:
-    # Remove leading/trailing whitespace
-    text = "\n".join(line.strip() for line in text.splitlines())
+    # Remove leading whitespace
+    text = re.sub(r"^\s+(?!\n)", "", text)
     # Remove multiple spaces
-    text = re.sub(r"(\w\s)\s+", r"\1", text)
+    text = re.sub(r"[^\S\r\n]+", r" ", text)
     # Strip
     text = text.strip()
     return text

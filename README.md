@@ -93,3 +93,10 @@ Fetch and store messages from telegram parser.
     "message": "Added N messages"
 }
 ```
+
+## CLI Tools
+- Test chunking: `python -m src.vector_storage.chunking --help`
+- Test parsing from html files: `python -m src.io.parse_tg_html --help`
+- Add messages to Vector Storage from html files `python -m src.vector_storage.vector_storage --help`
+
+Put htmls in `./data/html/`

@@ -1,14 +1,14 @@
 import logging
 import textwrap
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import chromadb
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
 from chromadb.config import Settings
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ..config.settings import settings
 from ..io.models import TelegramMessage
@@ -24,11 +24,13 @@ class SearchResult(BaseModel):  # NOTE: Tightly bound with document from chunkin
     document: str
     distance: float
     datetime: str
-    token_mentions: str
+    # token_mentions: str # Deprecated. Now this is implemented by full text search
     username: str
     message_id: str
     chunk_id: str
     content: str
+
+    model_config = ConfigDict(extra="allow")
 
     @classmethod
     def from_chromadb(cls, doc: str, dist: float, meta: Dict) -> "SearchResult":
@@ -55,12 +57,12 @@ class SearchResult(BaseModel):  # NOTE: Tightly bound with document from chunkin
 class SearchResults(BaseModel):
     """Container for multiple search results from ChromaDB."""
 
-    results: List[SearchResult]
     query: Optional[str] = None
+    results: List[SearchResult]
 
     @classmethod
     def from_chromadb(
-        cls, chroma_results: chromadb.QueryResult, query: Optional[str] = None
+        cls, chroma_results: Dict[str, Any], query: Optional[str] = None
     ) -> "SearchResults":
         results = []
         for dist, doc, meta in zip(
@@ -159,34 +161,131 @@ class ChromaDbWrapper:
 
     async def search(
         self,
-        query: str,
-        n_results: Optional[int] = None,
-        filter_dict: Optional[Dict[str, Any]] = None,
-        tokens: Optional[List[str]] = None,
+        query: Optional[str],
+        n_results: int = 20,
+        where_filter: Optional[Dict[str, Any]] = None,
+        where_document_filter: Optional[Dict[str, Any]] = None,
+        full_text_items: Optional[List[str]] = None,
+        return_unique: bool = True,
     ) -> SearchResults:
-        query_embedding = await self.embedding_function.embed_query(query)
-        collection = await self.get_collection(self.collection_name)
-        n_results = n_results or 10
-
-        results = await collection.query(
-            query_embeddings=query_embedding, n_results=n_results, where=filter_dict
+        """
+        Search the vector store for messages based on parameters.
+        If query is not set, search for all messages by filters
+        If tokens are specified, initiate full-text search for them
+        """
+        if not query:
+            logger.info("No query provided, searching for all messages")
+            results = await self._search_all(
+                n_results=n_results,
+                where_filter=where_filter,
+                where_document_filter=where_document_filter,
+                full_text_items=full_text_items,
+            )
+        logger.info("Query provided, searching for relevant messages")
+        results = await self._search_semantic(
+            query, n_results, where_filter, where_document_filter, full_text_items
         )
-        search_results = SearchResults.from_chromadb(results, query=query)
+        out_results = SearchResults.from_chromadb(results, query=query)
+        if not return_unique:
+            return out_results
+        key_tuples = []
+        out_unique: List[SearchResult] = []
+        for r in out_results:
+            key_tuple = r.username, r.message_id
+            if key_tuple not in key_tuples:
+                key_tuples.append(key_tuple)
+                out_unique.append(r)
+        out_results.results = out_unique
+        return out_results
 
-        # FIXME: Very much crunch
-        if tokens:
-            search_results_items = [
-                sr
-                for sr in search_results
-                if any(t in sr.token_mentions for t in tokens)
-            ]
-            search_results.results = search_results_items
-
-        return search_results
-
-    async def delete_messages(self, message_ids: List[str]) -> None:
+    async def _search_semantic(
+        self,
+        query: str,
+        n_results: int = 20,
+        where_filter: Optional[Dict[str, Any]] = None,
+        where_document_filter: Optional[Dict[str, Any]] = None,
+        full_text_items: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Search the vector store for messages relevant to the query"""
         collection = await self.get_collection(self.collection_name)
-        await collection.delete(ids=message_ids)
+        query_embedding = await self.embedding_function.embed_query(query)
+        if full_text_items:
+            where_document_filter = self.create_full_text_items_filter(
+                full_text_items, where_document_filter
+            )
+        results = await collection.query(
+            query_embeddings=query_embedding,
+            n_results=n_results,
+            where=where_filter,
+            where_document=where_document_filter,  # pyright: ignore
+        )
+        return results
+
+    async def _search_all(
+        self,
+        n_results: int = 20,
+        where_filter: Optional[Dict[str, Any]] = None,
+        where_document_filter: Optional[Dict[str, Any]] = None,
+        full_text_items: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        collection = await self.get_collection(self.collection_name)
+        if full_text_items:
+            where_document_filter = self.create_full_text_items_filter(
+                full_text_items, where_document_filter
+            )
+        results = await collection.get(
+            limit=n_results,
+            where=where_filter,
+            where_document=where_document_filter,  # pyright: ignore
+        )
+        logger.debug("Search results: {}".format(results))
+        out = dict(
+            ids=[results["ids"]],
+            documents=[results["documents"]],
+            metadatas=[results["metadatas"]],
+            distances=[[0.0] * len(results["ids"])],
+        )
+        return out
+
+    def create_full_text_items_filter(
+        self,
+        full_text_items: List[str],
+        where_document_filter: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        if not full_text_items and where_document_filter is None:
+            return None
+        contains_items = [{"$contains": item} for item in full_text_items]
+        if not full_text_items:
+            return where_document_filter
+        items_filter = (
+            {"$or": contains_items} if len(contains_items) > 1 else contains_items[0]
+        )
+        if not where_document_filter:
+            return items_filter
+        logger.warning(
+            "Both full text items and where_document_filter provided: {} {}".format(
+                items_filter, where_document_filter
+            )
+        )
+        if where_doc_items := where_document_filter.get("$or"):
+            return {"$or": contains_items + where_doc_items}
+        out_filter = {"$or": [where_document_filter] + contains_items}
+        return out_filter
+
+    async def delete_messages(
+        self,
+        message_ids: Optional[List[str]] = None,
+        usernames: Optional[List[str]] = None,
+    ) -> None:
+        collection = await self.get_collection(self.collection_name)
+        if message_ids:
+            logger.info(f"Deleting messages with IDs: {message_ids}")
+            return await collection.delete(ids=message_ids)
+        if usernames:
+            where = {"username": {"$in": usernames}}
+            logger.info(f"Deleting messages from usernames: {usernames}")
+            return await collection.delete(where=where)
+        logger.warning("No message IDs or usernames provided for deletion")
 
 
 async def main():

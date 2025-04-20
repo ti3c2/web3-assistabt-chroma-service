@@ -9,10 +9,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 PROJECT_PATH = Path(__file__).parents[2]
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
 
 
 @dataclass
@@ -59,11 +55,13 @@ class TgParserMixin:
     tg_parser_port: int = Field(default=8778)
 
     @property
-    def tg_parser_base_url(self, endpoint: Optional[str] = None) -> str:
+    def tg_parser_base_url(self) -> str:
         url = f"{self.tg_parser_host}:{self.tg_parser_port}"
-        if endpoint:
-            url += f"/{endpoint}"
         return url
+
+    @property
+    def tg_parser_posts_endpoint(self) -> str:
+        return f"{self.tg_parser_base_url}/posts"
 
 
 class ProjectSettings(
@@ -77,4 +75,8 @@ class ProjectSettings(
 
 
 settings = ProjectSettings()
-logging.basicConfig(level=settings.log_level)
+
+logging.basicConfig(
+    level=settings.log_level,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
