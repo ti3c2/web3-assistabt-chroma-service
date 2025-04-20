@@ -9,10 +9,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 PROJECT_PATH = Path(__file__).parents[2]
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
 
 
 @dataclass
@@ -79,4 +75,8 @@ class ProjectSettings(
 
 
 settings = ProjectSettings()
-logging.basicConfig(level=settings.log_level)
+
+logging.basicConfig(
+    level=settings.log_level,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
