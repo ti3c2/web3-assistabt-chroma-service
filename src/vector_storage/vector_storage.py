@@ -166,6 +166,7 @@ class ChromaDbWrapper:
         where_filter: Optional[Dict[str, Any]] = None,
         where_document_filter: Optional[Dict[str, Any]] = None,
         full_text_items: Optional[List[str]] = None,
+        return_unique: bool = True,
     ) -> SearchResults:
         """
         Search the vector store for messages based on parameters.
@@ -184,7 +185,18 @@ class ChromaDbWrapper:
         results = await self._search_semantic(
             query, n_results, where_filter, where_document_filter, full_text_items
         )
-        return SearchResults.from_chromadb(results, query=query)
+        out_results = SearchResults.from_chromadb(results, query=query)
+        if not return_unique:
+            return out_results
+        key_tuples = []
+        out_unique: List[SearchResult] = []
+        for r in out_results:
+            key_tuple = r.username, r.message_id
+            if key_tuple not in key_tuples:
+                key_tuples.append(key_tuple)
+                out_unique.append(r)
+        out_results.results = out_unique
+        return out_results
 
     async def _search_semantic(
         self,

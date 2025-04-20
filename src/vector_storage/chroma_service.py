@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 
 import aiohttp
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..config.settings import settings
 from ..io.models import TelegramMessage
@@ -33,6 +33,10 @@ class SearchQuery(BaseModel):
     query: Optional[str] = None
     n_results: int = 15
     tokens: Optional[List[str]] = None
+    return_unique: bool = Field(
+        default=True,
+        description="Return unique messages. Do not change this if you are unsure.",
+    )
 
 
 @app.on_event("startup")
@@ -67,7 +71,9 @@ async def add_messages(messages: List[Message]) -> Dict[str, str]:
 
 
 @app.post("/chroma/search")
-async def search_messages(query: SearchQuery) -> SearchResults:
+async def search_messages(
+    query: SearchQuery,
+) -> SearchResults:
     """
     Search messages in the vector store.
     - If query is specified, do semantic search. Otherwise, search for all messages using filters.
