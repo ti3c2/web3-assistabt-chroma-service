@@ -8,7 +8,7 @@ from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
 from chromadb.config import Settings
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ..config.settings import settings
 from ..io.models import TelegramMessage
@@ -24,11 +24,13 @@ class SearchResult(BaseModel):  # NOTE: Tightly bound with document from chunkin
     document: str
     distance: float
     datetime: str
-    token_mentions: str
+    # token_mentions: str # Deprecated. Now this is implemented by full text search
     username: str
     message_id: str
     chunk_id: str
     content: str
+
+    model_config = ConfigDict(extra="allow")
 
     @classmethod
     def from_chromadb(cls, doc: str, dist: float, meta: Dict) -> "SearchResult":

@@ -60,7 +60,7 @@ class MessageChunker:
                     username=message.username,
                     message_id=message.message_id,
                     datetime=message.datetime.isoformat() if message.datetime else "",
-                    token_mentions=",".join(message.token_mentions),
+                    # token_mentions=",".join(message.token_mentions),
                     content=message.content,
                 ),
             )
