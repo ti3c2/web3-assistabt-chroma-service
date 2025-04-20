@@ -20,7 +20,6 @@ services:
         "0.0.0.0",
         "--port",
         "6400",
-        "--reload",
       ]
     environment:
       - CHROMADB_HOST=chroma
