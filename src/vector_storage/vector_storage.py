@@ -106,6 +106,7 @@ class ChromaDbWrapper:
     client: AsyncClientAPI = None
 
     chunker: MessageChunker = field(default_factory=MessageChunker)
+    search_results_factor: int = 4 # how many chunks to search to make sure we will return this number of results # fmt: skip
 
     async def init_client(self) -> None:
         self.client = await chromadb.AsyncHttpClient(
@@ -162,7 +163,7 @@ class ChromaDbWrapper:
     async def search(
         self,
         query: Optional[str],
-        n_results: int = 20,
+        n_results: int = 5,
         where_filter: Optional[Dict[str, Any]] = None,
         where_document_filter: Optional[Dict[str, Any]] = None,
         full_text_items: Optional[List[str]] = None,
@@ -173,10 +174,11 @@ class ChromaDbWrapper:
         If query is not set, search for all messages by filters
         If tokens are specified, initiate full-text search for them
         """
+        n_results_search = n_results * self.search_results_factor
         if query is None or not query.strip():
             logger.info("No query provided, using full text search for %s with metadata %s and doc filter %s", full_text_items, where_filter, where_document_filter) # fmt: skip
             results = await self._search_all(
-                n_results=n_results,
+                n_results=n_results_search,
                 where_filter=where_filter,
                 where_document_filter=where_document_filter,
                 full_text_items=full_text_items,
@@ -184,10 +186,15 @@ class ChromaDbWrapper:
         else:
             logger.info("Query provided: `%s`, searching...", query) # fmt: skip
             results = await self._search_semantic(
-                query, n_results, where_filter, where_document_filter, full_text_items
+                query,
+                n_results_search,
+                where_filter,
+                where_document_filter,
+                full_text_items,
             )
         out_results = SearchResults.from_chromadb(results, query=query)
         if not return_unique:
+            out_results.results = out_results.results[:n_results]
             return out_results
         key_tuples = []
         out_unique: List[SearchResult] = []
@@ -196,7 +203,7 @@ class ChromaDbWrapper:
             if key_tuple not in key_tuples:
                 key_tuples.append(key_tuple)
                 out_unique.append(r)
-        out_results.results = out_unique
+        out_results.results = out_unique[:n_results]
         return out_results
 
     async def _search_semantic(

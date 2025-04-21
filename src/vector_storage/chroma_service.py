@@ -31,7 +31,7 @@ class Message(BaseModel):
 
 class SearchQuery(BaseModel):
     query: Optional[str] = None
-    n_results: int = 15
+    n_results: int = 5
     tokens: Optional[List[str]] = None
     return_unique: bool = Field(
         default=True,
@@ -83,7 +83,10 @@ async def search_messages(
     """
     try:
         return await vector_store.search(
-            query.query, query.n_results, full_text_items=query.tokens
+            query.query,
+            query.n_results,
+            full_text_items=query.tokens,
+            return_unique=query.return_unique,
         )
     except Exception as e:
         raise HTTPException(
