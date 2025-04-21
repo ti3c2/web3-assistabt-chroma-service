@@ -173,18 +173,19 @@ class ChromaDbWrapper:
         If query is not set, search for all messages by filters
         If tokens are specified, initiate full-text search for them
         """
-        if not query:
-            logger.info("No query provided, searching for all messages")
+        if query is None or not query.strip():
+            logger.info("No query provided, using full text search for %s with metadata %s and doc filter %s", full_text_items, where_filter, where_document_filter) # fmt: skip
             results = await self._search_all(
                 n_results=n_results,
                 where_filter=where_filter,
                 where_document_filter=where_document_filter,
                 full_text_items=full_text_items,
             )
-        logger.info("Query provided, searching for relevant messages")
-        results = await self._search_semantic(
-            query, n_results, where_filter, where_document_filter, full_text_items
-        )
+        else:
+            logger.info("Query provided: `%s`, searching...", query) # fmt: skip
+            results = await self._search_semantic(
+                query, n_results, where_filter, where_document_filter, full_text_items
+            )
         out_results = SearchResults.from_chromadb(results, query=query)
         if not return_unique:
             return out_results
@@ -213,6 +214,7 @@ class ChromaDbWrapper:
             where_document_filter = self.create_full_text_items_filter(
                 full_text_items, where_document_filter
             )
+            logging.debug("Full text items filter created %s", where_document_filter) # fmt: skip
         results = await collection.query(
             query_embeddings=query_embedding,
             n_results=n_results,
@@ -233,6 +235,7 @@ class ChromaDbWrapper:
             where_document_filter = self.create_full_text_items_filter(
                 full_text_items, where_document_filter
             )
+            logger.debug("Full text items filter created %s", where_document_filter) # fmt: skip
         results = await collection.get(
             limit=n_results,
             where=where_filter,
@@ -252,7 +255,9 @@ class ChromaDbWrapper:
         full_text_items: List[str],
         where_document_filter: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
+        logging.debug("Creating full text items filter for items %s and doc filter %s", full_text_items, where_document_filter) # fmt:skip
         if not full_text_items and where_document_filter is None:
+            logger.warning("No full text items or document filter provided")
             return None
         contains_items = [{"$contains": item} for item in full_text_items]
         if not full_text_items:
