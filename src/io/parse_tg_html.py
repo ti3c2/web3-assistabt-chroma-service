@@ -86,7 +86,7 @@ def parse_tg_html(html_content: str, channel: str) -> list[TelegramMessage]:
         telegram_message = TelegramMessage(
             username=channel,
             message_id=message_id,
-            datetime=message_datetime,
+            datetime=message_datetime.isoformat() if message_datetime else "",
             content=text_content,
         )
         messages.append(telegram_message)

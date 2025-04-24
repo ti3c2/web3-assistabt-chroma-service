@@ -24,8 +24,8 @@ vector_store = ChromaDbWrapper()
 
 class Message(BaseModel):
     message_id: int
-    text: str
-    date: dt.datetime
+    text: str = ""
+    date: str
     username: str
 
 
