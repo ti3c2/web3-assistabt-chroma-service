@@ -144,6 +144,9 @@ class ChromaDbWrapper:
             if doc.metadata["chunk_id"] in collection_entries["ids"]:
                 logger.warning(f"Skipping chunk {doc.metadata['chunk_id']}")
                 continue
+            if len(doc.page_content.split()) < 5:  # NOTE: skip short chunks
+                logger.warning(f"Skipping too short chunk {doc.metadata['chunk_id']}: {doc.page_content}") # fmt: skip
+                continue
             documents.append(doc)
         if not documents:
             logger.warning("No new documents to add")

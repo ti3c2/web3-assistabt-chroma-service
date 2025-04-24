@@ -68,7 +68,7 @@ class MessageChunker:
                     chunk_id=chunk_id,
                     username=message.username,
                     message_id=message.message_id,
-                    datetime=message.datetime.isoformat() if message.datetime else "",
+                    datetime=message.datetime,
                     # token_mentions=",".join(message.token_mentions),
                     content=message.content,
                 ),

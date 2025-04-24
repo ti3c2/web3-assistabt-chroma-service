@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class TelegramMessage(BaseModel):
     username: str
     message_id: str
-    datetime: Optional[dt.datetime] = None
+    datetime: str = ""
     content: str
 
     @cached_property

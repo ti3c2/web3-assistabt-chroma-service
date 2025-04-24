@@ -25,6 +25,7 @@ services:
       - CHROMADB_HOST=chroma
       - CHROMADB_PORT=8000
       - OPENAI_API_KEY=$OPENAI_API_KEY
+      - UVICORN_RELOAD=${UVICORN_RELOAD:-false}
     ports:
       - "6400:6400"
     depends_on:
