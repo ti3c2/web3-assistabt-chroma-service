@@ -137,17 +137,17 @@ async def fetch_messages(
             async with session.get(endpoint, params=params) as response:
                 if response.status == 200:
                     messages = await response.json()
-                    logger.debug("Fetched messages: %s", messages[:5])
-                    messages = []
+                    logger.info("Fetched messages: %s", messages[:5])
+                    messages_parsed = []
                     for m in messages:
                         try:
-                            messages.append(Message(**m))
+                            messages_parsed.append(Message(**m))
                         except Exception as e:
                             logger.error(f"Failed to parse message: {m}, error: {e}")
-                    await add_messages(messages)
+                    await add_messages(messages_parsed)
                     return {
                         "status": "success",
-                        "message": f"Added {len(messages)} messages",
+                        "message": f"Added {len(messages_parsed)} messages",
                     }
                 else:
                     raise HTTPException(
