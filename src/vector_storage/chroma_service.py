@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 
 import aiohttp
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ..config.settings import settings
 from ..io.models import TelegramMessage
@@ -27,6 +27,15 @@ class Message(BaseModel):
     text: str = ""
     date: str
     username: str
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def validate_text(cls, text: Optional[str] = None) -> str:
+        if text is None:
+            logger.warning("No text provided for message")
+            return ""
+        return text
+
 
 
 class SearchQuery(BaseModel):
@@ -120,12 +129,15 @@ async def fetch_messages(
     """Fetch messages from the tg parser and add them to the vector store"""
     try:
         endpoint = settings.tg_parser_posts_endpoint
-        params = {"usernames": usernames, "limit": limit, "offset": offset}
+        params = {"limit": limit, "offset": offset}
+        if usernames is not None:
+            params["usernames"] = usernames
         logger.info(f"Fetching messages from {endpoint}")
         async with aiohttp.ClientSession() as session:
             async with session.get(endpoint, params=params) as response:
                 if response.status == 200:
                     messages = await response.json()
+                    logger.debug("Fetched messages: %s", messages[:5])
                     messages = [Message(**m) for m in messages]
                     await add_messages(messages)
                     return {
