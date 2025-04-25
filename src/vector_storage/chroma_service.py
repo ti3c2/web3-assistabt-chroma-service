@@ -138,7 +138,12 @@ async def fetch_messages(
                 if response.status == 200:
                     messages = await response.json()
                     logger.debug("Fetched messages: %s", messages[:5])
-                    messages = [Message(**m) for m in messages]
+                    messages = []
+                    for m in messages:
+                        try:
+                            messages.append(Message(**m))
+                        except Exception as e:
+                            logger.error(f"Failed to parse message: {m}, error: {e}")
                     await add_messages(messages)
                     return {
                         "status": "success",
