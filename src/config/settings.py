@@ -71,7 +71,7 @@ class ProjectSettings(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    log_level: int = logging.DEBUG
+    log_level: int = logging.INFO
 
 
 settings = ProjectSettings()
