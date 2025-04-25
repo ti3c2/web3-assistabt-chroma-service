@@ -19,7 +19,9 @@ class BaseEmbeddings(ABC):
 class OpenAIEmbeddings(BaseEmbeddings):
     def __init__(self, model: str = "text-embedding-ada-002"):
         self.model = model
-        self.client = openai.AsyncClient(api_key=settings.openai_api_key)
+        self.client = openai.AsyncClient(
+            api_key=settings.openai_api_key, base_url=settings.openai_api_base
+        )
 
     async def embed_documents(self, texts: List[str]) -> List[List[float]]:
         response = await self.client.embeddings.create(input=texts, model=self.model)
