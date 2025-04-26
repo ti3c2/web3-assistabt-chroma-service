@@ -100,3 +100,129 @@ Fetch and store messages from telegram parser.
 - Add messages to Vector Storage from html files `python -m src.vector_storage.vector_storage --help`
 
 Put htmls in `./data/html/`
+
+## Code Diagram
+```mermaid
+classDiagram
+    direction TB
+    class ProjectSettings {
+	    +path_root: Path
+	    +path_data: Path
+	    +openai_api_key: str
+	    +chromadb_host: str
+	    +chromadb_port: int
+	    +tg_parser_host: str
+    }
+
+    class TelegramMessage {
+	    +username: str
+	    +message_id: str
+	    +datetime: datetime
+	    +content: str
+	    +parsed_content: str
+	    +token_mentions: List[str]
+    }
+
+    class TextCleaner {
+        +remove_emojis(text: str)
+        +remove_telegram_links(text: str)
+        +remove_urls(text: str)
+        +remove_md_emphasis(text: str)
+        +remove_md_list_bullets(text: str)
+        +replace_md_urls(text: str)
+        +remove_hashtags(text: str)
+        +remove_cashtags(text: str)
+        +remove_whitespace(text: str)
+        +parse_html(text: str)
+        +cleanup_text(text: str)
+    }
+
+    class TokenExtractor {
+        +TICKER_PATTERN: str
+        +extract_token_single(text: str): List[str]
+        +extract_token_pairs(text: str): List[Tuple[str,str]]
+        +extract_token_mentions(text: str): List[str]
+    }
+
+    class MessageChunker {
+	    +chunk_size: int
+	    +chunk_overlap: int
+	    +split_message(message: TelegramMessage)
+	    +split_messages(messages: List[TelegramMessage])
+    }
+
+    class BaseEmbeddings {
+	    Base class to allow further experiments with embedders
+	    +embed_documents(texts: List[str])
+	    +embed_query(text: str)
+    }
+
+    class OpenAIEmbeddings {
+	    +model: str
+	    +client: OpenAI
+	    +embed_documents(texts: List[str])
+	    +embed_query(text: str)
+    }
+
+    class ChromaDbWrapper {
+	    +collection_name: str
+	    +embedding_function: BaseEmbeddings
+	    +chunker: MessageChunker
+	    +init_client()
+	    +add_messages(messages: List[TelegramMessage])
+	    +search(query: str)
+	    +delete_messages(message_ids: List[str])
+    }
+
+    class SearchResult {
+	    +document: str
+	    +distance: float
+	    +datetime: str
+	    +token_mentions: str
+	    +username: str
+	    +message_id: str
+    }
+
+    class SearchResults {
+	    +results: List[SearchResult]
+	    +query: str
+	    +from_chromadb()
+	    +to_string()
+    }
+
+        class SearchQuery {
+	    +query: Optional[str]
+	    +n_results: Optional[int]
+	    +tokens: Optional[List[str]]
+    }
+
+    class Message {
+	    +message_id: int
+	    +text: str
+	    +date: datetime
+	    +username: str
+    }
+
+    class VectorStorAPI {
+	    +vector_store: ChromaDbWrapper
+	    +POST /chroma/messages(messages: List[Message])
+	    +POST /chroma/search(query: SearchQuery)
+	    +DELETE /chroma/messages(message_ids: List[str])
+	    +POST /chroma/fetch(usernames: List[str], limit: int, offset: int) Fetch messages from external telegram parser API]
+	    +POST /chroma/fetchall()
+    }
+
+	<<abstract>> BaseEmbeddings
+
+    BaseEmbeddings <|-- OpenAIEmbeddings
+    SearchQuery --> VectorStorAPI
+    Message <-- VectorStorAPI
+    ChromaDbWrapper --> MessageChunker
+    ChromaDbWrapper --> BaseEmbeddings
+    SearchResults <-- ChromaDbWrapper
+    SearchResult <-- SearchResults
+    VectorStorAPI --> ChromaDbWrapper
+    MessageChunker --> TelegramMessage
+    TelegramMessage --> TextCleaner
+    TelegramMessage --> TokenExtractor
+```
